@@ -1,13 +1,17 @@
-import React from 'react';
+import React, {useState} from 'react';
 import {View, StyleSheet, ScrollView, Alert} from 'react-native';
-import {Text, Card, List, Avatar, Button, Divider} from 'react-native-paper';
+import {Text, Card, List, Avatar, Button, Divider, Switch, SegmentedButtons} from 'react-native-paper';
 import {ProfileMainScreenProps} from '@/types/navigation.types';
 import {useAuth} from '@/hooks/useAuth';
-import {Colors, Sizes} from '@/config/theme';
+import {useTheme, ThemeMode} from '@/contexts/ThemeContext';
+import {Sizes} from '@/config/theme';
 import {getInitials, formatWeight, formatHeight} from '@/utils/formatters';
+import {clearImageCache} from '@/utils/imageCacheUtils';
 
 const ProfileScreen: React.FC<ProfileMainScreenProps> = ({navigation}) => {
   const {user, logout} = useAuth();
+  const {colors, themeMode, setThemeMode} = useTheme();
+  const [showThemeSelector, setShowThemeSelector] = useState(false);
 
   const handleLogout = () => {
     Alert.alert(
@@ -26,6 +30,47 @@ const ProfileScreen: React.FC<ProfileMainScreenProps> = ({navigation}) => {
       ],
     );
   };
+
+  const handleClearCache = () => {
+    Alert.alert(
+      'Limpiar Caché de Imágenes',
+      '¿Deseas eliminar todas las imágenes en caché? Esto liberará espacio de almacenamiento pero las imágenes deberán descargarse nuevamente.',
+      [
+        {text: 'Cancelar', style: 'cancel'},
+        {
+          text: 'Limpiar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await clearImageCache();
+              Alert.alert('Éxito', 'Caché de imágenes limpiado correctamente');
+            } catch (error) {
+              Alert.alert('Error', 'No se pudo limpiar el caché');
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const styles = StyleSheet.create({
+    container: {flex: 1, backgroundColor: colors.background},
+    scroll: {padding: Sizes.lg},
+    profileCard: {marginBottom: Sizes.lg, alignItems: 'center'},
+    profileContent: {alignItems: 'center'},
+    avatar: {backgroundColor: colors.primary, marginBottom: Sizes.md},
+    name: {fontWeight: '700', marginBottom: Sizes.xs},
+    email: {color: colors.textSecondary},
+    card: {marginBottom: Sizes.lg},
+    sectionTitle: {fontWeight: '600', marginBottom: Sizes.md},
+    infoRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      paddingVertical: Sizes.sm,
+    },
+    logoutButton: {marginTop: Sizes.lg, borderColor: colors.error},
+    themeSelectorContainer: {paddingVertical: Sizes.md},
+  });
 
   return (
     <View style={styles.container}>
@@ -101,6 +146,59 @@ const ProfileScreen: React.FC<ProfileMainScreenProps> = ({navigation}) => {
             right={props => <List.Icon {...props} icon="chevron-right" />}
             onPress={() => {}}
           />
+          <Divider />
+          <List.Item
+            title="Limpiar Caché de Imágenes"
+            description="Liberar espacio eliminando imágenes guardadas"
+            left={props => <List.Icon {...props} icon="image-refresh" />}
+            right={props => <List.Icon {...props} icon="chevron-right" />}
+            onPress={handleClearCache}
+          />
+        </Card>
+
+        {/* Tema y Apariencia */}
+        <Card style={styles.card}>
+          <Card.Content>
+            <Text variant="titleMedium" style={styles.sectionTitle}>
+              Apariencia
+            </Text>
+          </Card.Content>
+          <List.Item
+            title="Tema Oscuro"
+            description={`Modo: ${themeMode === 'auto' ? 'Automático' : themeMode === 'dark' ? 'Oscuro' : 'Claro'}`}
+            left={props => <List.Icon {...props} icon="theme-light-dark" />}
+            right={props => (
+              <Switch
+                value={showThemeSelector}
+                onValueChange={setShowThemeSelector}
+              />
+            )}
+          />
+          {showThemeSelector && (
+            <Card.Content style={styles.themeSelectorContainer}>
+              <SegmentedButtons
+                value={themeMode}
+                onValueChange={(value) => setThemeMode(value as ThemeMode)}
+                buttons={[
+                  {
+                    value: 'light',
+                    label: 'Claro',
+                    icon: 'white-balance-sunny',
+                  },
+                  {
+                    value: 'dark',
+                    label: 'Oscuro',
+                    icon: 'moon-waning-crescent',
+                  },
+                  {
+                    value: 'auto',
+                    label: 'Auto',
+                    icon: 'theme-light-dark',
+                  },
+                ]}
+              />
+            </Card.Content>
+          )}
         </Card>
 
         {/* Cerrar Sesión */}
@@ -109,30 +207,12 @@ const ProfileScreen: React.FC<ProfileMainScreenProps> = ({navigation}) => {
           onPress={handleLogout}
           icon="logout"
           style={styles.logoutButton}
-          textColor={Colors.error}>
+          textColor={colors.error}>
           Cerrar Sesión
         </Button>
       </ScrollView>
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {flex: 1, backgroundColor: Colors.background},
-  scroll: {padding: Sizes.lg},
-  profileCard: {marginBottom: Sizes.lg, alignItems: 'center'},
-  profileContent: {alignItems: 'center'},
-  avatar: {backgroundColor: Colors.primary, marginBottom: Sizes.md},
-  name: {fontWeight: '700', marginBottom: Sizes.xs},
-  email: {color: Colors.textSecondary},
-  card: {marginBottom: Sizes.lg},
-  sectionTitle: {fontWeight: '600', marginBottom: Sizes.md},
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: Sizes.sm,
-  },
-  logoutButton: {marginTop: Sizes.lg, borderColor: Colors.error},
-});
 
 export default ProfileScreen;

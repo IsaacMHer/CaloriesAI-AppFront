@@ -10,6 +10,8 @@ import {Colors, Sizes} from '@/config/theme';
 import {formatCalories, formatMacros, formatRelativeDate, getGreeting} from '@/utils/formatters';
 import {calculateProgress, getProgressColor} from '@/utils/calculations';
 import {MealTypeLabels, MealTypeColors} from '@/types/api.types';
+import CachedImage from '@/components/common/CachedImage';
+import {preloadMealImages} from '@/utils/imageCacheUtils';
 
 const HomeScreen: React.FC<HomeMainScreenProps> = ({navigation}) => {
   const {user} = useAuth();
@@ -20,6 +22,18 @@ const HomeScreen: React.FC<HomeMainScreenProps> = ({navigation}) => {
   useEffect(() => {
     loadData();
   }, []);
+
+  // Precargar imágenes de comidas del día
+  useEffect(() => {
+    if (meals.length > 0) {
+      const photoUrls = meals
+        .filter(meal => meal.photoUrl)
+        .map(meal => meal.photoUrl!);
+      if (photoUrls.length > 0) {
+        preloadMealImages(photoUrls);
+      }
+    }
+  }, [meals]);
 
   const loadData = async () => {
     try {
@@ -158,38 +172,51 @@ const HomeScreen: React.FC<HomeMainScreenProps> = ({navigation}) => {
             meals.map(meal => (
               <TouchableOpacity key={meal.id} onPress={() => navigation.navigate('MealDetail', {mealId: meal.id})}>
                 <Card style={styles.mealCard}>
-                  <Card.Content>
-                    <View style={styles.mealHeader}>
-                      <Chip
-                        icon="silverware-fork-knife"
-                        style={{backgroundColor: MealTypeColors[meal.mealType]}}>
-                        {MealTypeLabels[meal.mealType]}
-                      </Chip>
-                      <IconButton
-                        icon="delete"
-                        iconColor={Colors.error}
-                        size={20}
-                        onPress={() => handleDeleteMeal(meal.id)}
+                  <View style={styles.mealCardContent}>
+                    {/* Foto de la comida (si existe) */}
+                    {meal.photoUrl && (
+                      <CachedImage
+                        uri={meal.photoUrl}
+                        style={styles.mealPhoto}
+                        resizeMode="cover"
+                        showPlaceholder
+                        showLoadingIndicator
                       />
-                    </View>
-
-                    <View style={styles.mealContent}>
-                      <Text variant="bodyLarge" style={styles.mealCalories}>
-                        {formatCalories(meal.totalCalories)}
-                      </Text>
-                      <View style={styles.mealMacros}>
-                        <Text variant="bodySmall">P: {formatMacros(meal.totalProtein)}</Text>
-                        <Text variant="bodySmall">C: {formatMacros(meal.totalCarbs)}</Text>
-                        <Text variant="bodySmall">G: {formatMacros(meal.totalFat)}</Text>
-                      </View>
-                    </View>
-
-                    {meal.foods && meal.foods.length > 0 && (
-                      <Text variant="bodySmall" style={styles.foodsCount}>
-                        {meal.foods.length} alimento(s)
-                      </Text>
                     )}
-                  </Card.Content>
+
+                    <Card.Content style={styles.mealInfo}>
+                      <View style={styles.mealHeader}>
+                        <Chip
+                          icon="silverware-fork-knife"
+                          style={{backgroundColor: MealTypeColors[meal.mealType]}}>
+                          {MealTypeLabels[meal.mealType]}
+                        </Chip>
+                        <IconButton
+                          icon="delete"
+                          iconColor={Colors.error}
+                          size={20}
+                          onPress={() => handleDeleteMeal(meal.id)}
+                        />
+                      </View>
+
+                      <View style={styles.mealContent}>
+                        <Text variant="bodyLarge" style={styles.mealCalories}>
+                          {formatCalories(meal.totalCalories)}
+                        </Text>
+                        <View style={styles.mealMacros}>
+                          <Text variant="bodySmall">P: {formatMacros(meal.totalProtein)}</Text>
+                          <Text variant="bodySmall">C: {formatMacros(meal.totalCarbs)}</Text>
+                          <Text variant="bodySmall">G: {formatMacros(meal.totalFat)}</Text>
+                        </View>
+                      </View>
+
+                      {meal.foods && meal.foods.length > 0 && (
+                        <Text variant="bodySmall" style={styles.foodsCount}>
+                          {meal.foods.length} alimento(s)
+                        </Text>
+                      )}
+                    </Card.Content>
+                  </View>
                 </Card>
               </TouchableOpacity>
             ))
@@ -230,7 +257,10 @@ const styles = StyleSheet.create({
   emptyContent: {alignItems: 'center'},
   emptyText: {color: Colors.textSecondary, textAlign: 'center'},
   emptySubtext: {color: Colors.textDisabled, textAlign: 'center', marginTop: Sizes.xs},
-  mealCard: {marginBottom: Sizes.md},
+  mealCard: {marginBottom: Sizes.md, overflow: 'hidden'},
+  mealCardContent: {flexDirection: 'row'},
+  mealPhoto: {width: 100, height: 100},
+  mealInfo: {flex: 1},
   mealHeader: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Sizes.sm},
   mealContent: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'},
   mealCalories: {fontWeight: '600', color: Colors.primary},

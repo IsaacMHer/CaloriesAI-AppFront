@@ -5,31 +5,28 @@ import {
   ViewStyle,
   StyleProp,
   ActivityIndicator,
+  ImageStyle,
 } from 'react-native';
-import FastImage, {
-  FastImageProps,
-  Priority,
-  ResizeMode,
-} from 'react-native-fast-image';
+import {Image, ImageContentFit} from 'expo-image';
 import {IconButton, Text} from 'react-native-paper';
 import {Colors} from '@/config/theme';
 
 /**
  * Props para el componente CachedImage
  */
-interface CachedImageProps extends Omit<FastImageProps, 'source'> {
+interface CachedImageProps {
   /** URI de la imagen */
   uri: string;
+  /** Estilo de la imagen */
+  style?: StyleProp<ImageStyle>;
   /** Estilo del contenedor */
   containerStyle?: StyleProp<ViewStyle>;
   /** Placeholder durante la carga */
   showPlaceholder?: boolean;
   /** Color del placeholder */
   placeholderColor?: string;
-  /** Prioridad de carga (normal, low, high) */
-  priority?: Priority;
   /** Modo de resize */
-  resizeMode?: ResizeMode;
+  resizeMode?: 'cover' | 'contain' | 'stretch' | 'center';
   /** Callback cuando la carga falla */
   onError?: () => void;
   /** Callback cuando la carga termina */
@@ -40,12 +37,12 @@ interface CachedImageProps extends Omit<FastImageProps, 'source'> {
 
 /**
  * CachedImage
- * Wrapper de FastImage con características adicionales:
+ * Wrapper de Expo Image con características adicionales:
  * - Cache automático de imágenes
  * - Placeholder durante carga
  * - Manejo de errores con UI
  * - Indicador de carga
- * - Prioridad de carga configurable
+ * - Optimización de rendimiento
  *
  * Uso:
  * ```tsx
@@ -63,12 +60,10 @@ const CachedImage: React.FC<CachedImageProps> = ({
   containerStyle,
   showPlaceholder = true,
   placeholderColor = Colors.border,
-  priority = FastImage.priority.normal,
-  resizeMode = FastImage.resizeMode.cover,
+  resizeMode = 'cover',
   onError,
   onLoadEnd,
   showLoadingIndicator = true,
-  ...restProps
 }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
@@ -100,18 +95,15 @@ const CachedImage: React.FC<CachedImageProps> = ({
 
   return (
     <View style={[styles.container, containerStyle]}>
-      {/* Imagen con FastImage */}
-      <FastImage
+      {/* Imagen con Expo Image */}
+      <Image
         style={[styles.image, style]}
-        source={{
-          uri,
-          priority,
-          cache: FastImage.cacheControl.immutable,
-        }}
-        resizeMode={resizeMode}
+        source={{uri}}
+        contentFit={resizeMode as ImageContentFit}
+        transition={200}
+        cachePolicy="memory-disk"
         onLoadEnd={handleLoadEnd}
         onError={handleError}
-        {...restProps}
       />
 
       {/* Placeholder durante carga */}

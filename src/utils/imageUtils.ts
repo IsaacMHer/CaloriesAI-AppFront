@@ -1,18 +1,6 @@
-import {
-  launchCamera,
-  launchImageLibrary,
-  ImagePickerResponse,
-  Asset,
-} from 'react-native-image-picker';
-import ImageResizer from 'react-native-image-resizer';
-import {Platform, PermissionsAndroid, Alert} from 'react-native';
-import {
-  check,
-  request,
-  PERMISSIONS,
-  RESULTS,
-  Permission,
-} from 'react-native-permissions';
+import * as ImagePicker from 'expo-image-picker';
+import {Alert} from 'react-native';
+import * as FileSystem from 'expo-file-system';
 
 /**
  * Solicita permisos de cámara
@@ -20,23 +8,8 @@ import {
  */
 export const requestCameraPermission = async (): Promise<boolean> => {
   try {
-    if (Platform.OS === 'android') {
-      const granted = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.CAMERA,
-        {
-          title: 'Permiso de Cámara',
-          message: 'CaloriesAI necesita acceso a tu cámara para tomar fotos',
-          buttonNeutral: 'Preguntar Luego',
-          buttonNegative: 'Cancelar',
-          buttonPositive: 'OK',
-        },
-      );
-      return granted === PermissionsAndroid.RESULTS.GRANTED;
-    } else {
-      const permission: Permission = PERMISSIONS.IOS.CAMERA;
-      const result = await request(permission);
-      return result === RESULTS.GRANTED;
-    }
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    return status === 'granted';
   } catch (error) {
     console.error('Error requesting camera permission:', error);
     return false;
@@ -49,40 +22,8 @@ export const requestCameraPermission = async (): Promise<boolean> => {
  */
 export const requestGalleryPermission = async (): Promise<boolean> => {
   try {
-    if (Platform.OS === 'android') {
-      const androidVersion = Platform.Version;
-
-      // Android 13+ usa MEDIA_IMAGES
-      if (androidVersion >= 33) {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.READ_MEDIA_IMAGES,
-          {
-            title: 'Permiso de Galería',
-            message: 'CaloriesAI necesita acceso a tus fotos',
-            buttonNeutral: 'Preguntar Luego',
-            buttonNegative: 'Cancelar',
-            buttonPositive: 'OK',
-          },
-        );
-        return granted === PermissionsAndroid.RESULTS.GRANTED;
-      } else {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
-          {
-            title: 'Permiso de Galería',
-            message: 'CaloriesAI necesita acceso a tus fotos',
-            buttonNeutral: 'Preguntar Luego',
-            buttonNegative: 'Cancelar',
-            buttonPositive: 'OK',
-          },
-        );
-        return granted === PermissionsAndroid.RESULTS.GRANTED;
-      }
-    } else {
-      const permission: Permission = PERMISSIONS.IOS.PHOTO_LIBRARY;
-      const result = await request(permission);
-      return result === RESULTS.GRANTED;
-    }
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    return status === 'granted';
   } catch (error) {
     console.error('Error requesting gallery permission:', error);
     return false;
@@ -105,27 +46,19 @@ export const takePhoto = async (): Promise<string | null> => {
       return null;
     }
 
-    const options = {
-      mediaType: 'photo' as const,
-      quality: 0.8 as const,
-      maxWidth: 1024,
-      maxHeight: 1024,
-      saveToPhotos: false,
-    };
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: 'images',
+      quality: 0.8,
+      allowsEditing: false,
+      exif: false,
+    });
 
-    const result: ImagePickerResponse = await launchCamera(options);
-
-    if (result.didCancel) {
-      return null;
-    }
-
-    if (result.errorCode) {
-      Alert.alert('Error', result.errorMessage || 'Error al abrir la cámara');
+    if (result.canceled) {
       return null;
     }
 
     if (result.assets && result.assets[0]) {
-      return await compressImage(result.assets[0].uri!);
+      return result.assets[0].uri;
     }
 
     return null;
@@ -152,27 +85,19 @@ export const pickFromGallery = async (): Promise<string | null> => {
       return null;
     }
 
-    const options = {
-      mediaType: 'photo' as const,
-      quality: 0.8 as const,
-      maxWidth: 1024,
-      maxHeight: 1024,
-      selectionLimit: 1,
-    };
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: 'images',
+      quality: 0.8,
+      allowsEditing: false,
+      exif: false,
+    });
 
-    const result: ImagePickerResponse = await launchImageLibrary(options);
-
-    if (result.didCancel) {
-      return null;
-    }
-
-    if (result.errorCode) {
-      Alert.alert('Error', result.errorMessage || 'Error al abrir la galería');
+    if (result.canceled) {
       return null;
     }
 
     if (result.assets && result.assets[0]) {
-      return await compressImage(result.assets[0].uri!);
+      return result.assets[0].uri;
     }
 
     return null;
@@ -184,25 +109,17 @@ export const pickFromGallery = async (): Promise<string | null> => {
 };
 
 /**
- * Comprime una imagen
+ * Comprime una imagen (Expo maneja esto automáticamente con quality param)
  * @param uri - URI de la imagen
  * @returns URI de la imagen comprimida
  */
 export const compressImage = async (uri: string): Promise<string> => {
   try {
-    const compressedImage = await ImageResizer.createResizedImage(
-      uri,
-      800, // max width
-      800, // max height
-      'JPEG',
-      80, // quality
-      0, // rotation
-    );
-
-    return compressedImage.uri;
+    // Expo-image-picker ya comprime las imágenes según el parámetro quality
+    // Si necesitas compresión adicional, puedes usar expo-image-manipulator
+    return uri;
   } catch (error) {
     console.error('Error compressing image:', error);
-    // Si falla la compresión, retornar la URI original
     return uri;
   }
 };
@@ -214,20 +131,10 @@ export const compressImage = async (uri: string): Promise<string> => {
  */
 export const convertToBase64 = async (uri: string): Promise<string> => {
   try {
-    const response = await fetch(uri);
-    const blob = await response.blob();
-
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64 = reader.result as string;
-        // Remover el prefijo "data:image/...;base64,"
-        const base64String = base64.split(',')[1];
-        resolve(base64String);
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
+    const base64 = await FileSystem.readAsStringAsync(uri, {
+      encoding: FileSystem.EncodingType.Base64,
     });
+    return base64;
   } catch (error) {
     console.error('Error converting to base64:', error);
     throw error;

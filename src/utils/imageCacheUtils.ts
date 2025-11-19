@@ -1,8 +1,8 @@
 import React from 'react';
-import FastImage from 'react-native-fast-image';
+import {Image} from 'expo-image';
 
 /**
- * Utilidades para manejo de caché de imágenes con FastImage
+ * Utilidades para manejo de caché de imágenes con Expo Image
  */
 
 /**
@@ -12,20 +12,17 @@ import FastImage from 'react-native-fast-image';
  */
 export const preloadImages = async (uris: string[]): Promise<void> => {
   try {
-    const sources = uris
-      .filter(uri => uri && uri.trim() !== '')
-      .map(uri => ({
-        uri,
-        priority: FastImage.priority.high,
-        cache: FastImage.cacheControl.immutable,
-      }));
+    const validUris = uris.filter(uri => uri && uri.trim() !== '');
 
-    if (sources.length === 0) {
+    if (validUris.length === 0) {
       return;
     }
 
-    await FastImage.preload(sources);
-    console.log(`[ImageCache] Precargadas ${sources.length} imágenes`);
+    await Promise.all(
+      validUris.map(uri => Image.prefetch(uri))
+    );
+
+    console.log(`[ImageCache] Precargadas ${validUris.length} imágenes`);
   } catch (error) {
     console.error('[ImageCache] Error al precargar imágenes:', error);
   }
@@ -42,13 +39,7 @@ export const preloadImage = async (uri: string): Promise<void> => {
   }
 
   try {
-    await FastImage.preload([
-      {
-        uri,
-        priority: FastImage.priority.high,
-        cache: FastImage.cacheControl.immutable,
-      },
-    ]);
+    await Image.prefetch(uri);
     console.log(`[ImageCache] Precargada imagen: ${uri}`);
   } catch (error) {
     console.error('[ImageCache] Error al precargar imagen:', error);
@@ -61,8 +52,8 @@ export const preloadImage = async (uri: string): Promise<void> => {
  */
 export const clearImageCache = async (): Promise<void> => {
   try {
-    await FastImage.clearMemoryCache();
-    await FastImage.clearDiskCache();
+    await Image.clearMemoryCache();
+    await Image.clearDiskCache();
     console.log('[ImageCache] Caché de imágenes limpiado completamente');
   } catch (error) {
     console.error('[ImageCache] Error al limpiar caché:', error);
@@ -75,7 +66,7 @@ export const clearImageCache = async (): Promise<void> => {
  */
 export const clearMemoryCache = async (): Promise<void> => {
   try {
-    await FastImage.clearMemoryCache();
+    await Image.clearMemoryCache();
     console.log('[ImageCache] Caché en memoria limpiado');
   } catch (error) {
     console.error('[ImageCache] Error al limpiar caché en memoria:', error);
@@ -88,7 +79,7 @@ export const clearMemoryCache = async (): Promise<void> => {
  */
 export const clearDiskCache = async (): Promise<void> => {
   try {
-    await FastImage.clearDiskCache();
+    await Image.clearDiskCache();
     console.log('[ImageCache] Caché en disco limpiado');
   } catch (error) {
     console.error('[ImageCache] Error al limpiar caché en disco:', error);
@@ -140,19 +131,24 @@ export const getOptimizedImageUri = (
 
   // Si el backend soporta parámetros de query para resize, agregarlos aquí
   // Ejemplo: https://api.example.com/images/123?w=400&h=300&q=80
-  const url = new URL(baseUri);
+  try {
+    const url = new URL(baseUri);
 
-  if (width) {
-    url.searchParams.set('w', width.toString());
-  }
-  if (height) {
-    url.searchParams.set('h', height.toString());
-  }
-  if (quality) {
-    url.searchParams.set('q', quality.toString());
-  }
+    if (width) {
+      url.searchParams.set('w', width.toString());
+    }
+    if (height) {
+      url.searchParams.set('h', height.toString());
+    }
+    if (quality) {
+      url.searchParams.set('q', quality.toString());
+    }
 
-  return url.toString();
+    return url.toString();
+  } catch (error) {
+    // Si no es una URL válida, retornar la original
+    return baseUri;
+  }
 };
 
 /**
